@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Estudos</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .blinking-dot { animation: blink 1.5s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .progress-circle, .donut-chart-slice { transition: all 0.3s ease-in-out; }
+        .modal-overlay, .collapsible-content { transition: all 0.3s ease-in-out; }
+        .modal-content { transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out; }
+        .collapsible-content { max-height: 0; overflow: hidden; }
+        .collapsible-content.expanded { max-height: 3000px; /* Valor alto para permitir expansão de muitos tópicos */ }
+        .rotate-180 { transform: rotate(180deg); }
+        .tab-button.active { border-color: #3b82f6; color: #3b82f6; }
+        .main-nav-button.active { background-color: #3b82f6; color: white; }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen flex items-center justify-center p-4">
+
+    <main class="container mx-auto max-w-5xl w-full">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-8">
+            
+            <header class="text-center mb-6">
+                <h1 class="text-3xl md:text-4xl font-bold text-blue-600 dark:text-blue-400">Meu Painel de Estudos</h1>
+                <p class="text-gray-500 dark:text-gray-400 mt-2">Monitore suas horas, tópicos e desempenho</p>
+            </header>
+
+            <!-- Navegação Principal -->
+            <nav class="flex justify-center mb-8">
+                <div class="flex p-1 bg-gray-200 dark:bg-gray-700 rounded-lg">
+                    <button id="nav-panel" class="main-nav-button active px-6 py-2 text-sm font-medium rounded-md transition-colors">Painel</button>
+                    <button id="nav-dashboard" class="main-nav-button px-6 py-2 text-sm font-medium rounded-md transition-colors">Dashboard</button>
+                    <button id="nav-goals" class="main-nav-button px-6 py-2 text-sm font-medium rounded-md transition-colors">Metas</button>
+                </div>
+            </nav>
+
+            <!-- Conteúdo Principal -->
+            <div id="main-content">
+                <!-- Visualização do Painel (Matérias) -->
+                <div id="panel-view">
+                    <section class="bg-blue-50 dark:bg-gray-700 rounded-xl p-6 mb-8 text-center">
+                        <h2 class="text-lg font-semibold text-blue-800 dark:text-blue-200 mb-4">Resumo Gráfico de Horas</h2>
+                        <div id="total-time-chart-container" class="w-full max-w-xs mx-auto relative"></div>
+                        <div id="chart-legend" class="flex flex-wrap justify-center gap-x-4 gap-y-2 mt-4"></div>
+                    </section>
+                    <section class="mb-8">
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <input type="text" id="new-subject-name" placeholder="Adicionar matéria extra" class="flex-grow bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none transition">
+                            <button id="add-subject-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-transform transform hover:scale-105 shadow-md">Adicionar</button>
+                        </div>
+                    </section>
+                    <section id="subjects-container"></section>
+                </div>
+
+                <!-- Visualização do Dashboard (Ícones) -->
+                <div id="dashboard-view" class="hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <!-- Card: Total de Horas -->
+                        <div class="bg-gray-50 dark:bg-gray-700/50 p-6 rounded-xl flex items-center gap-6">
+                            <div class="bg-blue-100 dark:bg-blue-900/50 p-4 rounded-full text-blue-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-500 dark:text-gray-400 text-sm">Total de Horas</p>
+                                <p id="db-total-hours" class="text-2xl font-bold">00:00</p>
+                            </div>
+                        </div>
+                        <!-- Card: Progresso de Hoje -->
+                        <div class="bg-gray-50 dark:bg-gray-700/50 p-6 rounded-xl flex items-center gap-6">
+                            <div class="bg-green-100 dark:bg-green-900/50 p-4 rounded-full text-green-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-500 dark:text-gray-400 text-sm">Progresso de Hoje</p>
+                                <p id="db-today-progress" class="text-2xl font-bold">00:00</p>
+                            </div>
+                        </div>
+                        <!-- Card: Total de Questões Gerais -->
+                        <div class="bg-gray-50 dark:bg-gray-700/50 p-6 rounded-xl flex items-center gap-6">
+                            <div class="bg-yellow-100 dark:bg-yellow-900/50 p-4 rounded-full text-yellow-500">
+                               <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-500 dark:text-gray-400 text-sm">Questões Gerais</p>
+                                <p id="db-total-questions" class="text-2xl font-bold">0</p>
+                            </div>
+                        </div>
+                        <!-- Card: Média de Questões por Dia -->
+                        <div class="bg-gray-50 dark:bg-gray-700/50 p-6 rounded-xl flex items-center gap-6">
+                            <div class="bg-purple-100 dark:bg-purple-900/50 p-4 rounded-full text-purple-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-500 dark:text-gray-400 text-sm">Média Questões/Dia</p>
+                                <p id="db-avg-questions-day" class="text-2xl font-bold">0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Visualização de Metas -->
+                <div id="goals-view" class="hidden">
+                    <div id="goals-cards-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                        <!-- Cards de metas serão inseridos aqui -->
+                    </div>
+                     <div class="bg-gray-50 dark:bg-gray-700/50 p-6 rounded-xl mt-8">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-bold text-lg text-center">Calendário de Metas Cumpridas</h3>
+                             <div class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="compensation-toggle" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-500 peer-checked:bg-blue-600"></div>
+                                <span class="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300">Modo Compensação</span>
+                            </div>
+                        </div>
+                        <div id="goals-heatmap-container" class="overflow-x-auto"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal para Adicionar Tempo Manualmente -->
+    <div id="add-time-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 modal-overlay z-50 opacity-0 pointer-events-none">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 w-full max-w-sm modal-content transform scale-95 opacity-0">
+            <h3 class="text-2xl font-bold mb-2 text-center">Adicionar Tempo</h3>
+            <p id="modal-subject-name" class="text-center text-gray-500 dark:text-gray-400 mb-6"></p>
+            <div class="flex gap-4 mb-6"><div class="flex-1"><label for="manual-hours" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Horas</label><input type="number" id="manual-hours" min="0" placeholder="0" class="mt-1 block w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-center text-lg"></div><div class="flex-1"><label for="manual-minutes" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Minutos</label><input type="number" id="manual-minutes" min="0" max="59" placeholder="0" class="mt-1 block w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-center text-lg"></div></div>
+            <div class="flex gap-4"><button id="cancel-add-time" class="w-full bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 font-bold py-3 px-6 rounded-lg transition">Cancelar</button><button id="save-manual-time" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition">Salvar</button></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DADOS DO EDITAL ---
+            const preloadedSubjects = [
+                { id: 1, name: "Noções de Direito Administrativo", sessions: [], generalQuestionsAttempted: 0, generalQuestionsCorrect: 0, dailyGoals: [], topics: [
+                    { id: 101, name: "Princípios do Direito Administrativo", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 102, name: "Administração Pública: conceito, princípios, órgãos e agentes", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 103, name: "Administração Direta e Indireta", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 104, name: "Poderes Administrativos", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 105, name: "Atos Administrativos", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 106, name: "Contratos Administrativos", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 107, name: "Inexecução, Revisão e Rescisão de Contratos", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 108, name: "Gestão Contratual", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 109, name: "Licitação", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 110, name: "Recursos Administrativos", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 111, name: "Sistema de Registro de Preços", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 112, name: "Serviços Públicos", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 113, name: "Servidores Públicos: Regime Jurídico e Organização", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 114, name: "Direitos, deveres e proibições do servidor", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 115, name: "Responsabilidade do Servidor Público", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 116, name: "Bens Públicos", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 117, name: "Controle da Administração", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 118, name: "Responsabilidade Civil do Estado e Direito de Regresso", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 119, name: "Intervenção do Estado na Propriedade e Desapropriação", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 120, name: "Servidão e Requisição Administrativa", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 121, name: "Processo Administrativo", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 122, name: "Lei 8.429/92 (Improbidade Administrativa)", completed: false, questionsAttempted: 0, questionsCorrect: 0 }
+                ]},
+                { id: 2, name: "Noções de Direito Constitucional", sessions: [], generalQuestionsAttempted: 0, generalQuestionsCorrect: 0, dailyGoals: [], topics: [
+                    { id: 201, name: "Dos Princípios Fundamentais", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 202, name: "Dos Direitos e Garantias Fundamentais", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 203, name: "Da Organização do Estado", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 204, name: "Da Organização dos Poderes", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 205, name: "Das Funções Essenciais à Justiça", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 206, name: "Da Defesa do Estado e das Instituições Democráticas", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 207, name: "Do Sistema Tributário Nacional", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 208, name: "Da Ordem Econômica e Financeira", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 209, name: "Da Ordem Social", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 210, name: "Das Disposições Constitucionais Gerais e Transitórias", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 211, name: "Da Constituição do Estado de Pernambuco", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 212, name: "Da Administração Pública na Constituição", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 213, name: "Lei 7.347/1985 (Ação Civil Pública)", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 214, name: "Lei 12.016/2009 (Mandado de Segurança)", completed: false, questionsAttempted: 0, questionsCorrect: 0 }
+                ]},
+                { id: 3, name: "Noções de Direito Civil", sessions: [], generalQuestionsAttempted: 0, generalQuestionsCorrect: 0, dailyGoals: [], topics: [
+                    { id: 301, name: "Fontes, princípios e normas gerais", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 302, name: "Pessoas naturais e pessoas jurídicas", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 303, name: "Domicílio", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 304, name: "Bens", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 305, name: "Atos e Negócio jurídico", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 306, name: "Prescrição e decadência", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 307, name: "Prova", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 308, name: "Obrigações", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 309, name: "Responsabilidade Civil", completed: false, questionsAttempted: 0, questionsCorrect: 0 }
+                ]},
+                { id: 4, name: "Noções de Direito Processual Civil", sessions: [], generalQuestionsAttempted: 0, generalQuestionsCorrect: 0, dailyGoals: [], topics: [
+                    { id: 401, name: "Jurisdição e ação", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 402, name: "Partes, procuradores, litisconsórcio e assistência", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 403, name: "Intervenção de terceiros", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 404, name: "Ministério Público e Competência", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 405, name: "O juiz e Atos processuais", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 406, name: "Formação, suspensão e extinção do processo", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 407, name: "Procedimentos ordinário e sumário", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 408, name: "Resposta do réu e Revelia", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 409, name: "Julgamento conforme o estado do processo", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 410, name: "Provas e Audiência", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 411, name: "Sentença e coisa julgada", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 412, name: "Liquidação e cumprimento da sentença", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 413, name: "Recursos", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 414, name: "Processo de execução", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 415, name: "Processo cautelar e medidas cautelares", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 416, name: "Procedimentos especiais", completed: false, questionsAttempted: 0, questionsCorrect: 0 }
+                ]},
+                { id: 5, name: "Noções de Direito Penal", sessions: [], generalQuestionsAttempted: 0, generalQuestionsCorrect: 0, dailyGoals: [], topics: [
+                    { id: 501, name: "Sujeito ativo e passivo da infração penal", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 502, name: "Tipicidade, ilicitude, culpabilidade, punibilidade", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 503, name: "Excludentes de ilicitude e de culpabilidade", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 504, name: "Erro de tipo; erro de proibição", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 505, name: "Imputabilidade penal e Concurso de pessoas", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 506, name: "Crimes contra a fé pública", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 507, name: "Crimes contra a Administração Pública", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 508, name: "Crimes contra a inviolabilidade dos segredos", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 509, name: "Crimes contra o patrimônio", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 510, name: "Crimes contra a pessoa", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 511, name: "Atos de improbidade por agentes públicos", completed: false, questionsAttempted: 0, questionsCorrect: 0 }
+                ]},
+                { id: 6, name: "Noções de Direito Processual Penal", sessions: [], generalQuestionsAttempted: 0, generalQuestionsCorrect: 0, dailyGoals: [], topics: [
+                    { id: 601, name: "Ação Penal", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 602, name: "Denúncia, Representação, Queixa, Renúncia, Perdão", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 603, name: "Sujeitos do processo", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 604, name: "Atos Processuais", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 605, name: "Prisão", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 606, name: "Liberdade Provisória e Fiança", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 607, name: "Atos Jurisdicionais", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 608, name: "Recursos em geral", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 609, name: "Habeas Corpus e Mandado de Segurança", completed: false, questionsAttempted: 0, questionsCorrect: 0 }
+                ]},
+                { id: 7, name: "Legislação", sessions: [], generalQuestionsAttempted: 0, generalQuestionsCorrect: 0, dailyGoals: [], topics: [
+                    { id: 701, name: "Resolução nº 395/2017 (Regimento Interno TJPE)", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 702, name: "Lei Comp. nº 100/2007 (Código de Organização Judiciária PE)", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 703, name: "Lei Estadual nº 6.123/1968 (Regime Jurídico Servidores PE)", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 704, name: "Resolução CNJ nº 185/2013 (PJe)", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 705, name: "Lei nº 11.419/2006 (Informatização do Processo Judicial)", completed: false, questionsAttempted: 0, questionsCorrect: 0 },
+                    { id: 706, name: "Lei nº 14.133/21 (Licitações e Contratos)", completed: false, questionsAttempted: 0, questionsCorrect: 0 }
+                ]}
+            ];
+
+            // --- ELEMENTOS DA UI ---
+            const newSubjectNameInput = document.getElementById('new-subject-name');
+            const addSubjectBtn = document.getElementById('add-subject-btn');
+            const subjectsContainer = document.getElementById('subjects-container');
+            const totalTimeChartContainer = document.getElementById('total-time-chart-container');
+            const chartLegend = document.getElementById('chart-legend');
+            const modal = document.getElementById('add-time-modal');
+            const modalContent = modal.querySelector('.modal-content');
+            const modalSubjectName = document.getElementById('modal-subject-name');
+            const manualHoursInput = document.getElementById('manual-hours');
+            const manualMinutesInput = document.getElementById('manual-minutes');
+            const saveManualTimeBtn = document.getElementById('save-manual-time');
+            const cancelAddTimeBtn = document.getElementById('cancel-add-time');
+            const navPanelBtn = document.getElementById('nav-panel');
+            const navDashboardBtn = document.getElementById('nav-dashboard');
+            const navGoalsBtn = document.getElementById('nav-goals');
+            const panelView = document.getElementById('panel-view');
+            const dashboardView = document.getElementById('dashboard-view');
+            const goalsView = document.getElementById('goals-view');
+
+            // --- ESTADO DA APLICAÇÃO ---
+            let subjects = [];
+            let expandedSubjects = new Set();
+            let activeTimer = { intervalId: null, subjectId: null };
+            let subjectIdForModal = null;
+            const chartColors = ['#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#06b6d4'];
+            const chartColorsTailwind = ['bg-blue-500', 'bg-indigo-500', 'bg-purple-500', 'bg-pink-500', 'bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500', 'bg-teal-500', 'bg-cyan-500'];
+            let totalTimeDonutChart;
+            const STORAGE_KEY = 'studyTrackerDataV12';
+
+            // --- FUNÇÕES DE DADOS E LÓGICA ---
+            const getBrasiliaDate = () => {
+                const now = new Date();
+                const offset = -3; // Brasília Time (UTC-3)
+                const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+                return new Date(utc + (3600000 * offset));
+            };
+            
+            const getBrasiliaISO = () => {
+                const today = getBrasiliaDate();
+                const year = today.getFullYear();
+                const month = (today.getMonth() + 1).toString().padStart(2, '0');
+                const day = today.getDate().toString().padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            };
+
+            const loadData = () => {
+                const savedData = localStorage.getItem(STORAGE_KEY);
+                if (savedData && JSON.parse(savedData).length > 0) {
+                    subjects = JSON.parse(savedData);
+                } else {
+                    subjects = preloadedSubjects;
+                }
+                subjects.forEach(s => { 
+                    if (!s.sessions) s.sessions = [];
+                    if (!s.topics) s.topics = [];
+                    if (s.generalQuestionsAttempted === undefined) s.generalQuestionsAttempted = 0;
+                    if (s.generalQuestionsCorrect === undefined) s.generalQuestionsCorrect = 0;
+                    if (!s.dailyGoals) s.dailyGoals = [];
+                    s.topics.forEach(t => {
+                        if (t.questionsAttempted === undefined) t.questionsAttempted = 0;
+                        if (t.questionsCorrect === undefined) t.questionsCorrect = 0;
+                    });
+                });
+                renderAll();
+            };
+
+            const saveData = () => localStorage.setItem(STORAGE_KEY, JSON.stringify(subjects));
+            
+            const addTimeToSession = (subjectId, secondsToAdd) => {
+                const subject = subjects.find(s => s.id === subjectId);
+                if (!subject) return;
+                const today = getBrasiliaISO();
+                const todaySession = subject.sessions.find(s => s.date === today);
+                if (todaySession) {
+                    todaySession.seconds += secondsToAdd;
+                } else {
+                    subject.sessions.push({ date: today, seconds: secondsToAdd });
+                }
+            };
+            
+            const updateDailyGoal = (subjectId, questionsDone) => {
+                const subject = subjects.find(s => s.id === subjectId);
+                if (!subject) return;
+                const today = getBrasiliaISO();
+                let todayGoal = subject.dailyGoals.find(g => g.date === today);
+                if (todayGoal) {
+                    todayGoal.questionsDone = questionsDone;
+                } else {
+                    subject.dailyGoals.push({ date: today, questionsDone });
+                }
+                saveData();
+                renderGoals(); // Apenas re-renderiza as metas
+            };
+
+            const startTimer = (id) => { if (activeTimer.intervalId) stopTimer(); activeTimer.subjectId = id; activeTimer.intervalId = setInterval(() => { addTimeToSession(id, 1); renderAll(); }, 1000); renderAll(); };
+            const stopTimer = () => { if (activeTimer.intervalId) { clearInterval(activeTimer.intervalId); activeTimer = { id: null, subjectId: null }; saveData(); renderAll(); } };
+            const deleteSubject = (id) => { if (activeTimer.subjectId === id) stopTimer(); subjects = subjects.filter(s => s.id !== id); expandedSubjects.delete(id); saveData(); renderAll(); };
+            const addManualTime = (id, h, m) => { addTimeToSession(id, (h * 3600) + (m * 60)); saveData(); renderAll(); };
+            const addTopic = (subjectId, topicName) => { const subject = subjects.find(s => s.id === subjectId); if(subject) { subject.topics.push({ id: Date.now(), name: topicName, completed: false, questionsAttempted: 0, questionsCorrect: 0 }); saveData(); renderAll(); }};
+            const toggleTopic = (subjectId, topicId) => { const subject = subjects.find(s => s.id === subjectId); if(subject) { const topic = subject.topics.find(t => t.id === topicId); if(topic) { topic.completed = !topic.completed; saveData(); renderAll(); } } };
+            const deleteTopic = (subjectId, topicId) => { const subject = subjects.find(s => s.id === subjectId); if(subject) { subject.topics = subject.topics.filter(t => t.id !== topicId); saveData(); renderAll(); } };
+            const updateQuestionCount = (subjectId, topicId, field, value) => { const s = subjects.find(sub => sub.id === subjectId); if(s) { const t = s.topics.find(top => top.id === topicId); if(t) { t[field] = value; saveData(); renderAll(); } } };
+            const updateGeneralQuestionCount = (subjectId, field, value) => { const s = subjects.find(sub => sub.id === subjectId); if(s) { s[field] = value; saveData(); renderAll(); } };
+
+            // --- FUNÇÕES DO MODAL ---
+            const openModal = (id) => { const s = subjects.find(sub => sub.id === id); if(!s) return; subjectIdForModal = id; modalSubjectName.textContent = `para ${s.name}`; manualHoursInput.value = ''; manualMinutesInput.value = ''; modal.classList.remove('pointer-events-none', 'opacity-0'); modalContent.classList.remove('scale-95', 'opacity-0'); };
+            const closeModal = () => { modal.classList.add('opacity-0'); modalContent.classList.add('scale-95', 'opacity-0'); setTimeout(() => { modal.classList.add('pointer-events-none'); subjectIdForModal = null; }, 300); };
+
+            // --- FUNÇÕES DE RENDERIZAÇÃO (UI) ---
+            const formatTime = (sec) => ({ h: Math.floor(sec / 3600).toString().padStart(2, '0'), m: Math.floor((sec % 3600) / 60).toString().padStart(2, '0'), s: (sec % 60).toString().padStart(2, '0') });
+            const renderAll = () => { renderSubjects(); renderTotalTimeDonutChart(); };
+            const getPerformanceColor = (percentage) => { if (percentage < 50) return 'text-red-500'; if (percentage < 80) return 'text-yellow-500'; return 'text-green-500'; };
+
+            const renderSubjects = () => {
+                subjectsContainer.innerHTML = '';
+                if (subjects.length === 0) { subjectsContainer.innerHTML = `<div class="text-center text-gray-500 dark:text-gray-400 p-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg"><p>Nenhuma matéria adicionada ainda.</p></div>`; return; }
+
+                subjects.forEach(subject => {
+                    const totalSeconds = subject.sessions.reduce((acc, s) => acc + s.seconds, 0);
+                    const isExpanded = expandedSubjects.has(subject.id);
+                    const isRunning = activeTimer.subjectId === subject.id;
+                    const { h, m } = formatTime(totalSeconds);
+                    const secondsForCircle = totalSeconds % 60;
+                    const radius = 42, circumference = 2 * Math.PI * radius;
+                    const progressOffset = circumference - (secondsForCircle / 60) * circumference;
+                    const totalTopics = subject.topics.length;
+                    const completedTopics = subject.topics.filter(t => t.completed).length;
+                    const topicProgressPercentage = totalTopics > 0 ? (completedTopics / totalTopics) * 100 : 0;
+                    const overallPerformance = subject.generalQuestionsAttempted > 0 ? (subject.generalQuestionsCorrect / subject.generalQuestionsAttempted) * 100 : 0;
+
+                    const card = document.createElement('div');
+                    card.className = "bg-gray-50 dark:bg-gray-700/50 rounded-xl mb-4 transition-all duration-300";
+                    card.innerHTML = `
+                        <div class="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div class="flex-grow flex items-center gap-4 w-full">
+                                <button data-action="expand" data-id="${subject.id}" class="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition"><svg class="w-6 h-6 transition-transform ${isExpanded ? 'rotate-180' : ''}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg></button>
+                                <div class="w-full">
+                                    <h3 class="text-xl font-semibold">${subject.name}</h3>
+                                    <div class="flex items-center gap-4 mt-2 text-sm text-gray-500 dark:text-gray-400">
+                                        <div class="w-1/2"><span>Progresso Tópicos</span><div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5 mt-1"><div class="bg-green-500 h-2.5 rounded-full" style="width: ${topicProgressPercentage}%"></div></div></div>
+                                        <div class="w-1/2"><span>Aproveitamento Geral</span><div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5 mt-1"><div class="${getPerformanceColor(overallPerformance).replace('text-','bg-')} h-2.5 rounded-full" style="width: ${overallPerformance}%"></div></div></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3 sm:gap-5 flex-shrink-0">
+                                <div class="relative w-24 h-24 flex-shrink-0"><svg viewBox="0 0 100 100"><circle class="text-gray-200 dark:text-gray-600" stroke-width="10" stroke="currentColor" fill="transparent" r="${radius}" cx="50" cy="50" /><circle class="progress-circle ${isRunning ? 'text-green-500' : 'text-blue-500'}" stroke-width="10" stroke-dasharray="${circumference}" stroke-dashoffset="${progressOffset}" stroke-linecap="round" stroke="currentColor" fill="transparent" r="${radius}" cx="50" cy="50" style="transform: rotate(-90deg); transform-origin: 50% 50%;" /><text x="50" y="52" class="text-xl font-bold" text-anchor="middle" dominant-baseline="middle" fill="currentColor">${h}:${m}</text></svg></div>
+                                <div class="flex flex-col gap-2"><button data-action="add-time" data-id="${subject.id}" class="bg-blue-500 hover:bg-blue-600 text-white font-bold p-2 rounded-full w-10 h-10 flex items-center justify-center" title="Adicionar Tempo"><svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg></button>${!isRunning ? `<button data-action="start" data-id="${subject.id}" class="bg-green-500 hover:bg-green-600 text-white font-bold p-2 rounded-full w-10 h-10 flex items-center justify-center" title="Iniciar"><svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg></button>` : `<button data-action="stop" data-id="${subject.id}" class="bg-red-500 hover:bg-red-600 text-white font-bold p-2 rounded-full w-10 h-10 flex items-center justify-center" title="Parar"><svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10h6" /></svg></button>`}<button data-action="delete-subject" data-id="${subject.id}" class="bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 font-bold p-2 rounded-full w-10 h-10 flex items-center justify-center" title="Excluir Matéria"><svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button></div>
+                            </div>
+                        </div>
+                        <div class="collapsible-content ${isExpanded ? 'expanded' : ''}" data-id="${subject.id}"><div class="border-t border-gray-200 dark:border-gray-600 px-4 pt-4"><div class="border-b border-gray-200 dark:border-gray-600"><nav class="-mb-px flex space-x-6" aria-label="Tabs"><button data-action="switch-tab" data-tab="topics" data-id="${subject.id}" class="tab-button active whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">Tópicos</button><button data-action="switch-tab" data-tab="general" data-id="${subject.id}" class="tab-button whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">Questões Gerais</button></nav></div><div class="py-4"><div class="tab-content" data-tab="topics" data-id="${subject.id}"><div class="grid grid-cols-12 gap-2 text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 px-2"><div class="col-span-6">TÓPICO</div><div class="col-span-2 text-center">QUESTÕES</div><div class="col-span-2 text-center">ACERTOS</div><div class="col-span-2 text-center">APROV.</div></div><div class="space-y-2 mb-4 topics-list">${subject.topics.length > 0 ? subject.topics.map(topic => { const performance = topic.questionsAttempted > 0 ? (topic.questionsCorrect / topic.questionsAttempted) * 100 : 0; return `<div class="grid grid-cols-12 gap-2 items-center bg-gray-100 dark:bg-gray-700 p-2 rounded-lg text-sm"><label class="col-span-6 flex items-center gap-3 cursor-pointer"><input type="checkbox" data-action="toggle-topic" data-subject-id="${subject.id}" data-topic-id="${topic.id}" class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 flex-shrink-0" ${topic.completed ? 'checked' : ''}><span class="${topic.completed ? 'line-through text-gray-500' : ''}">${topic.name}</span></label><div class="col-span-2"><input type="number" data-action="update-questions" data-field="questionsAttempted" data-subject-id="${subject.id}" data-topic-id="${topic.id}" value="${topic.questionsAttempted}" class="w-full bg-white dark:bg-gray-800 rounded-md p-1 text-center border-gray-300 dark:border-gray-600"></div><div class="col-span-2"><input type="number" data-action="update-questions" data-field="questionsCorrect" data-subject-id="${subject.id}" data-topic-id="${topic.id}" value="${topic.questionsCorrect}" class="w-full bg-white dark:bg-gray-800 rounded-md p-1 text-center border-gray-300 dark:border-gray-600"></div><div class="col-span-2 text-center font-bold ${getPerformanceColor(performance)}">${performance.toFixed(0)}%</div></div>`}).join('') : '<p class="text-sm text-gray-500 px-2">Nenhum tópico adicionado.</p>'}</div><div class="flex gap-2 px-2"><input type="text" data-action="new-topic-input" data-id="${subject.id}" placeholder="Adicionar novo tópico" class="flex-grow bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-500 rounded-lg p-2 text-sm"><button data-action="add-topic" data-id="${subject.id}" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg text-sm">Adicionar</button></div></div><div class="tab-content hidden" data-tab="general" data-id="${subject.id}"><div class="max-w-md mx-auto bg-gray-100 dark:bg-gray-700 p-4 rounded-lg"><h4 class="text-lg font-semibold mb-4 text-center">Desempenho Geral da Matéria</h4><div class="flex flex-col sm:flex-row gap-4 items-end"><div class="flex-1"><label class="block text-sm font-medium mb-1">Total de Questões</label><input type="number" data-action="update-general-questions" data-field="generalQuestionsAttempted" data-id="${subject.id}" value="${subject.generalQuestionsAttempted}" class="w-full bg-white dark:bg-gray-800 rounded-md p-2 text-center border-gray-300 dark:border-gray-600 text-lg"></div><div class="flex-1"><label class="block text-sm font-medium mb-1">Total de Acertos</label><input type="number" data-action="update-general-questions" data-field="generalQuestionsCorrect" data-id="${subject.id}" value="${subject.generalQuestionsCorrect}" class="w-full bg-white dark:bg-gray-800 rounded-md p-2 text-center border-gray-300 dark:border-gray-600 text-lg"></div><div class="flex-1 text-center"><label class="block text-sm font-medium mb-1">Aproveitamento</label><p class="text-2xl font-bold ${getPerformanceColor(overallPerformance)}">${overallPerformance.toFixed(0)}%</p></div></div></div></div></div></div></div>
+                    `;
+                    subjectsContainer.appendChild(card);
+                });
+            };
+
+            // --- FUNÇÃO DO GRÁFICO DO PAINEL ---
+            const renderTotalTimeDonutChart = () => {
+                const grandTotalSeconds = subjects.reduce((total, s) => total + s.sessions.reduce((acc, session) => acc + session.seconds, 0), 0);
+                const { h, m } = formatTime(grandTotalSeconds);
+                
+                if (totalTimeDonutChart) { totalTimeDonutChart.destroy(); }
+                totalTimeChartContainer.innerHTML = '';
+                chartLegend.innerHTML = '';
+                
+                const canvas = document.createElement('canvas');
+                totalTimeChartContainer.appendChild(canvas);
+                
+                if (grandTotalSeconds === 0) { 
+                    totalTimeChartContainer.innerHTML = `<p class="text-4xl md:text-5xl font-bold text-blue-600 dark:text-blue-300 mt-2">00:00:00</p>`; 
+                    return; 
+                }
+                
+                const labels = subjects.map(s => s.name);
+                const data = subjects.map(s => s.sessions.reduce((acc, session) => acc + session.seconds, 0));
+                const backgroundColors = subjects.map((s, i) => chartColors[i % chartColors.length]);
+
+                totalTimeDonutChart = new Chart(canvas.getContext('2d'), {
+                    type: 'doughnut',
+                    data: { labels, datasets: [{ data, backgroundColor: backgroundColors, borderWidth: 0 }] },
+                    options: {
+                        cutout: '70%',
+                        plugins: { legend: { display: false } },
+                        animation: { animateScale: true }
+                    }
+                });
+
+                const textCenter = document.createElement('div');
+                textCenter.className = "absolute inset-0 flex items-center justify-center text-2xl font-bold text-gray-700 dark:text-gray-200 pointer-events-none";
+                textCenter.textContent = `${h}:${m}`;
+                totalTimeChartContainer.appendChild(textCenter);
+
+                subjects.forEach((s, i) => {
+                    if (s.sessions.reduce((acc, session) => acc + session.seconds, 0) > 0) {
+                        const colorClass = chartColorsTailwind[i % chartColorsTailwind.length];
+                        chartLegend.innerHTML += `<div class="flex items-center gap-2 text-sm"><div class="w-3 h-3 rounded-full ${colorClass}"></div><span>${s.name}</span></div>`;
+                    }
+                });
+            };
+
+            // --- FUNÇÕES DO DASHBOARD ---
+            const renderDashboard = () => {
+                const dbTotalHours = document.getElementById('db-total-hours');
+                const dbTodayProgress = document.getElementById('db-today-progress');
+                const dbTotalQuestions = document.getElementById('db-total-questions');
+                const dbAvgQuestionsDay = document.getElementById('db-avg-questions-day');
+
+                const totalSeconds = subjects.reduce((total, s) => total + s.sessions.reduce((acc, session) => acc + session.seconds, 0), 0);
+                const { h, m } = formatTime(totalSeconds);
+                dbTotalHours.textContent = `${h}:${m}`;
+
+                const today = getBrasiliaISO();
+                const todaySeconds = subjects.reduce((total, subject) => {
+                    const session = subject.sessions.find(s => s.date === today);
+                    return total + (session ? session.seconds : 0);
+                }, 0);
+                const todayTime = formatTime(todaySeconds);
+                dbTodayProgress.textContent = `${todayTime.h}:${todayTime.m}`;
+
+                const totalGeneralQuestions = subjects.reduce((total, s) => total + s.generalQuestionsAttempted, 0);
+                dbTotalQuestions.textContent = totalGeneralQuestions;
+
+                const allSessionDates = new Set();
+                subjects.forEach(s => s.sessions.forEach(session => allSessionDates.add(session.date)));
+                const totalUniqueDays = allSessionDates.size;
+                const avgQuestionsPerDay = totalUniqueDays > 0 ? (totalGeneralQuestions / totalUniqueDays) : 0;
+                dbAvgQuestionsDay.textContent = avgQuestionsPerDay.toFixed(1);
+            };
+            
+            // --- FUNÇÕES DAS METAS ---
+            const renderGoals = () => {
+                const goalsContainer = document.getElementById('goals-cards-container');
+                goalsContainer.innerHTML = '';
+                const today = getBrasiliaISO();
+                const GOAL = 30;
+
+                subjects.forEach(subject => {
+                    const todayGoal = subject.dailyGoals.find(g => g.date === today);
+                    const questionsDone = todayGoal ? todayGoal.questionsDone : 0;
+                    const percentage = (questionsDone / GOAL) * 100;
+                    
+                    let progressColor = 'bg-gray-200 dark:bg-gray-600';
+                    if (percentage > 0 && percentage < 100) progressColor = 'bg-yellow-500';
+                    else if (percentage >= 100 && percentage <= 110) progressColor = 'bg-green-500';
+                    else if (percentage > 110) progressColor = 'bg-blue-500';
+
+                    const card = document.createElement('div');
+                    card.className = "bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl";
+                    card.innerHTML = `
+                        <h4 class="font-bold truncate">${subject.name}</h4>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Meta Diária: ${GOAL} questões</p>
+                        <div class="flex items-center gap-4 mt-3">
+                            <input type="number" data-action="update-goal" data-id="${subject.id}" value="${questionsDone}" class="w-20 bg-white dark:bg-gray-800 rounded-md p-2 text-center border-gray-300 dark:border-gray-600 text-lg font-bold">
+                            <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-4 relative">
+                                <div class="${progressColor} h-4 rounded-full" style="width: ${Math.min(100, percentage)}%"></div>
+                                <span class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white mix-blend-difference">${percentage.toFixed(0)}%</span>
+                            </div>
+                        </div>
+                    `;
+                    goalsContainer.appendChild(card);
+                });
+                renderGoalsHeatmap();
+            };
+
+            const renderGoalsHeatmap = () => {
+                const container = document.getElementById('goals-heatmap-container');
+                const isCompensationMode = document.getElementById('compensation-toggle').checked;
+                container.innerHTML = '';
+                const GOAL_PER_SUBJECT = 30;
+                const year = getBrasiliaDate().getFullYear();
+                const startDate = new Date(Date.UTC(year, 7, 12)); // August is month 7 (0-indexed)
+                const endDate = new Date(Date.UTC(year, 8, 21));   // September is month 8
+
+                let dailyData = new Map();
+                for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                    const isoDate = d.toISOString().split('T')[0];
+                    let questionsDoneToday = 0;
+                    let goalsCompletedToday = 0;
+                    subjects.forEach(s => {
+                        const goal = s.dailyGoals.find(g => g.date === isoDate);
+                        if (goal) {
+                            questionsDoneToday += goal.questionsDone;
+                            if (goal.questionsDone >= GOAL_PER_SUBJECT) {
+                                goalsCompletedToday++;
+                            }
+                        }
+                    });
+                    dailyData.set(isoDate, { questionsDone: questionsDoneToday, goalsCompleted: goalsCompletedToday });
+                }
+
+                let table = document.createElement('table');
+                table.className = "border-separate border-spacing-1";
+                let tbody = document.createElement('tbody');
+                for (let i = 0; i < 7; i++) tbody.insertRow();
+                
+                let surplus = 0;
+
+                for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                    const dayOfWeek = d.getUTCDay();
+                    const row = tbody.rows[dayOfWeek];
+                    
+                    if (d.getUTCDate() === 1 || d.getTime() === startDate.getTime()) {
+                         const monthCell = document.createElement('td');
+                         monthCell.className = "w-8 text-xs text-center align-bottom pb-1";
+                         monthCell.innerText = d.toLocaleDateString('pt-BR', { month: 'short', timeZone: 'UTC' });
+                         tbody.rows[0].appendChild(monthCell);
+                    }
+                    
+                    const cell = row.insertCell();
+                    const isoDate = d.toISOString().split('T')[0];
+                    const todayData = dailyData.get(isoDate) || { questionsDone: 0, goalsCompleted: 0 };
+                    
+                    let colorClass = 'bg-gray-200 dark:bg-gray-600';
+
+                    if (d <= getBrasiliaDate()) {
+                        if (isCompensationMode) {
+                            const dailyTarget = subjects.length * GOAL_PER_SUBJECT;
+                            surplus += todayData.questionsDone - dailyTarget;
+                            if (surplus >= 0) {
+                                colorClass = 'bg-green-500';
+                            } else {
+                                colorClass = 'bg-red-500';
+                                surplus = 0;
+                            }
+                        } else {
+                            if (todayData.questionsDone > 0) {
+                                if (todayData.goalsCompleted === subjects.length && subjects.length > 0) {
+                                    colorClass = 'bg-green-500';
+                                } else if (todayData.goalsCompleted > 0) {
+                                    colorClass = 'bg-yellow-500';
+                                } else {
+                                    colorClass = 'bg-red-500';
+                                }
+                            }
+                        }
+                    }
+                    
+                    cell.className = `w-4 h-4 rounded ${colorClass}`;
+                    cell.title = `${d.toLocaleDateString('pt-BR', {timeZone: 'UTC'})}`;
+                }
+                table.appendChild(tbody);
+                container.appendChild(table);
+            };
+
+            // --- EVENT LISTENERS ---
+            addSubjectBtn.addEventListener('click', () => { const name = newSubjectNameInput.value.trim(); if (name) { subjects.push({ id: Date.now(), name, time: 0, sessions: [], topics: [], generalQuestionsAttempted: 0, generalQuestionsCorrect: 0, dailyGoals: [] }); newSubjectNameInput.value = ''; saveData(); renderAll(); } });
+            newSubjectNameInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addSubjectBtn.click(); });
+
+            navPanelBtn.addEventListener('click', () => { panelView.classList.remove('hidden'); dashboardView.classList.add('hidden'); goalsView.classList.add('hidden'); navPanelBtn.classList.add('active'); navDashboardBtn.classList.remove('active'); navGoalsBtn.classList.remove('active'); });
+            navDashboardBtn.addEventListener('click', () => { dashboardView.classList.remove('hidden'); panelView.classList.add('hidden'); goalsView.classList.add('hidden'); navDashboardBtn.classList.add('active'); navPanelBtn.classList.remove('active'); navGoalsBtn.classList.remove('active'); renderDashboard(); });
+            navGoalsBtn.addEventListener('click', () => { goalsView.classList.remove('hidden'); panelView.classList.add('hidden'); dashboardView.classList.add('hidden'); navGoalsBtn.classList.add('active'); navPanelBtn.classList.remove('active'); navDashboardBtn.classList.remove('active'); renderGoals(); });
+
+            document.getElementById('goals-view').addEventListener('change', (e) => {
+                const input = e.target.closest('input');
+                if (input && input.dataset.action === 'update-goal') {
+                    const subjectId = parseInt(input.dataset.id);
+                    const value = parseInt(input.value) || 0;
+                    updateDailyGoal(subjectId, value);
+                }
+                if (input && input.id === 'compensation-toggle') {
+                    renderGoalsHeatmap();
+                }
+            });
+
+            subjectsContainer.addEventListener('click', (e) => {
+                const button = e.target.closest('button');
+                if (button) {
+                    const action = button.dataset.action; const id = parseInt(button.dataset.id);
+                    if (action === 'expand') { if (expandedSubjects.has(id)) { expandedSubjects.delete(id); } else { expandedSubjects.add(id); } renderAll(); return; }
+                    if (action === 'switch-tab') {
+                        const tabName = button.dataset.tab;
+                        const subjectCard = button.closest('.collapsible-content').parentElement;
+                        subjectCard.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+                        button.classList.add('active');
+                        subjectCard.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+                        subjectCard.querySelector(`.tab-content[data-tab="${tabName}"]`).classList.remove('hidden');
+                        return;
+                    }
+                    const subjectId = parseInt(button.dataset.subjectId); const topicId = parseInt(button.dataset.topicId);
+                    if (action === 'start') startTimer(id);
+                    else if (action === 'stop') stopTimer();
+                    else if (action === 'add-time') openModal(id);
+                    else if (action === 'delete-subject') { if (confirm(`Tem certeza que deseja excluir a matéria "${subjects.find(s=>s.id===id).name}" e todos os seus dados?`)) deleteSubject(id); }
+                    else if (action === 'add-topic') { const input = document.querySelector(`input[data-action="new-topic-input"][data-id="${id}"]`); const topicName = input.value.trim(); if (topicName) { addTopic(id, topicName); } }
+                    else if (action === 'delete-topic') { deleteTopic(subjectId, topicId); }
+                }
+            });
+
+            subjectsContainer.addEventListener('change', (e) => {
+                const input = e.target.closest('input');
+                if (!input) return;
+                const action = input.dataset.action;
+                const subjectId = parseInt(input.dataset.subjectId) || parseInt(input.dataset.id);
+                const value = parseInt(input.value) || 0;
+                if (action === 'update-questions') { const topicId = parseInt(input.dataset.topicId); const field = input.dataset.field; updateQuestionCount(subjectId, topicId, field, value); }
+                else if (action === 'toggle-topic') { const topicId = parseInt(input.dataset.topicId); toggleTopic(subjectId, topicId); }
+                else if (action === 'update-general-questions') { const field = input.dataset.field; updateGeneralQuestionCount(subjectId, field, value); }
+            });
+            
+            subjectsContainer.addEventListener('keypress', (e) => { if (e.key === 'Enter' && e.target.dataset.action === 'new-topic-input') { const id = parseInt(e.target.dataset.id); const topicName = e.target.value.trim(); if (topicName) { addTopic(id, topicName); } } });
+
+            saveManualTimeBtn.addEventListener('click', () => { const h = parseInt(manualHoursInput.value) || 0, m = parseInt(manualMinutesInput.value) || 0; if (subjectIdForModal !== null && (h > 0 || m > 0)) { addManualTime(subjectIdForModal, h, m); } closeModal(); });
+            cancelAddTimeBtn.addEventListener('click', closeModal);
+            modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+            // --- INICIALIZAÇÃO ---
+            Chart.defaults.font.family = "'Inter', sans-serif";
+            loadData();
+        });
+    </script>
+</body>
+</html>
